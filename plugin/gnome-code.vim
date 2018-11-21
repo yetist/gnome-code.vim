@@ -29,20 +29,13 @@ python <<EOF
 import vim, os
 CODE={}
 CODE[".h"] = """
+G_BEGIN_DECLS
+
 #define CPKG_TYPE_COBJ              (cpkg_cobj_get_type ())
-#define CPKG_COBJ(obj)              (G_TYPE_CHECK_INSTANCE_CAST ((obj), CPKG_TYPE_COBJ, CpkgCobj))
-#define CPKG_COBJ_CLASS(klass)      (G_TYPE_CHECK_CLASS_CAST ((klass), CPKG_TYPE_COBJ, CpkgCobjClass))
-#define CPKG_IS_COBJ(obj)           (G_TYPE_CHECK_INSTANCE_TYPE ((obj), CPKG_TYPE_COBJ))
-#define CPKG_IS_COBJ_CLASS(klass)   (G_TYPE_CHECK_CLASS_TYPE ((klass), CPKG_TYPE_COBJ))
-#define CPKG_COBJ_GET_CLASS(obj)    (G_TYPE_INSTANCE_GET_CLASS ((obj), CPKG_TYPE_COBJ, CpkgCobjClass))
-
-typedef struct _CpkgCobj             CpkgCobj;
-typedef struct _CpkgCobjClass        CpkgCobjClass;
-
-struct _CpkgCobj
-{
-  PpkgPobj      pobj;
-};
+#if 1
+G_DECLARE_FINAL_TYPE (CpkgCobj, cpkg_cobj, CPKG, COBJ, PpkgPobj)
+#else
+G_DECLARE_DERIVABLE_TYPE (CpkgCobj, cpkg_cobj, CPKG, COBJ, PpkgPobj)
 
 struct _CpkgCobjClass
 {
@@ -50,7 +43,11 @@ struct _CpkgCobjClass
 };
 
 GType      cpkg_cobj_get_type           (void) G_GNUC_CONST;
+#endif
+
 CpkgCobj*     cpkg_cobj_new                (void);
+
+G_END_DECLS
 """
 
 CODE[".c"] = """
@@ -60,59 +57,54 @@ enum {
 
 enum {
     PROP_0,
+    NUM_PROPERTIES
 };
 
-#define CPKG_COBJ_GET_PRIVATE(obj)  (G_TYPE_INSTANCE_GET_PRIVATE((obj), CPKG_TYPE_COBJ, CpkgCobjPrivate))
-
-typedef struct _CpkgCobjPrivate        CpkgCobjPrivate;
-
-struct _CpkgCobjPrivate
+static GParamSpec *widget_props[NUM_PROPERTIES] = { NULL, };
+static guint signals[LAST_SIGNAL] = { 0 };
+#if 1
+struct _CpkgCobj
 {
+  PpkgPobj      pobj;
 };
-
-static void cpkg_cobj_set_property  (GObject          *object,
-                                         guint             prop_id,
-                                         const GValue     *value,
-                                         GParamSpec       *pspec);
-static void cpkg_cobj_get_property  (GObject          *object,
-                                         guint             prop_id,
-                                         GValue           *value,
-                                         GParamSpec       *pspec);
 
 G_DEFINE_TYPE (CpkgCobj, cpkg_cobj, PPKG_TYPE_POBJ);
+#else
+typedef struct {
+  PpkgPobj      pobj;
+} _CpkgCobjPrivate;
 
-static void
-cpkg_cobj_class_init (CpkgCobjClass *class)
+G_DEFINE_TYPE_WITH_PRIVATE (CpkgCobj, cpkg_cobj, PPKG_TYPE_POBJ);
+#endif //#if 0/1
+
+static void cpkg_cobj_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
+static void cpkg_cobj_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
+
+static void cpkg_cobj_class_init (CpkgCobjClass *class)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS (class);
     GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (class);
 
     gobject_class->set_property = cpkg_cobj_set_property;
     gobject_class->get_property = cpkg_cobj_get_property;
-
-    g_type_class_add_private (class, sizeof (CpkgCobjPrivate));
 }
 
-static void
-cpkg_cobj_init (CpkgCobj *cobj)
+static void cpkg_cobj_init (CpkgCobj *cobj)
 {
+#if 0
     CpkgCobjPrivate *priv;
 
-    priv = CPKG_COBJ_GET_PRIVATE (cobj);
+    priv = cpkg_cobj_get_instance_private (client);
+#endif
 
 }
 
-CpkgCobj*
-cpkg_cobj_new (void)
+CpkgCobj* cpkg_cobj_new (void)
 {
     return g_object_new (CPKG_TYPE_COBJ, NULL);
 }
 
-static void
-cpkg_cobj_set_property (GObject      *object,
-                            guint         prop_id,
-                            const GValue *value,
-                            GParamSpec   *pspec)
+static void cpkg_cobj_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec)
 {
     CpkgCobj *cobj;
 
@@ -127,11 +119,7 @@ cpkg_cobj_set_property (GObject      *object,
     }
 }
 
-static void
-cpkg_cobj_get_property (GObject      *object,
-                            guint         prop_id,
-                            GValue       *value,
-                            GParamSpec   *pspec)
+static void cpkg_cobj_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
 {
     CpkgCobj *cobj;
 
