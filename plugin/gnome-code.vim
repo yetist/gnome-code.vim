@@ -2,18 +2,18 @@
 " Summary: This file is a vim plugin to autogen gobject code.
 " Author: yetist <yetist@gmail.com>
 " URL: http://gsnippet.googlecode.com/svn/trunk/vim-plugins/gnome-code.vim
-" License: 
-" 
+" License:
+"
 " This program is free software; you can redistribute it and/or modify
 " it under the terms of the GNU General Public License as published by
 " the Free Software Foundation; either version 2 of the License, or
 " (at your option) any later version.
-" 
+"
 " This program is distributed in the hope that it will be useful,
 " but WITHOUT ANY WARRANTY; without even the implied warranty of
 " MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 " GNU General Public License for more details.
-" 
+"
 " You should have received a copy of the GNU General Public License
 " along with this program; if not, write to the Free Software
 " Foundation, Inc., 59 Temple Place, Suite 330,
@@ -72,37 +72,10 @@ G_DEFINE_TYPE (CpkgCobj, cpkg_cobj, PPKG_TYPE_POBJ);
 #else
 typedef struct {
   PpkgPobj      pobj;
-} _CpkgCobjPrivate;
+} CpkgCobjPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE (CpkgCobj, cpkg_cobj, PPKG_TYPE_POBJ);
 #endif //#if 0/1
-
-static void cpkg_cobj_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
-static void cpkg_cobj_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
-
-static void cpkg_cobj_class_init (CpkgCobjClass *class)
-{
-    GObjectClass *gobject_class = G_OBJECT_CLASS (class);
-    GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (class);
-
-    gobject_class->set_property = cpkg_cobj_set_property;
-    gobject_class->get_property = cpkg_cobj_get_property;
-}
-
-static void cpkg_cobj_init (CpkgCobj *cobj)
-{
-#if 0
-    CpkgCobjPrivate *priv;
-
-    priv = cpkg_cobj_get_instance_private (client);
-#endif
-
-}
-
-CpkgCobj* cpkg_cobj_new (void)
-{
-    return g_object_new (CPKG_TYPE_COBJ, NULL);
-}
 
 static void cpkg_cobj_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec)
 {
@@ -132,6 +105,30 @@ static void cpkg_cobj_get_property (GObject *object, guint prop_id, GValue *valu
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
             break;
     }
+}
+
+static void cpkg_cobj_class_init (CpkgCobjClass *klass)
+{
+    GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
+    GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
+
+    gobject_class->set_property = cpkg_cobj_set_property;
+    gobject_class->get_property = cpkg_cobj_get_property;
+}
+
+static void cpkg_cobj_init (CpkgCobj *cobj)
+{
+#if 0
+    CpkgCobjPrivate *priv;
+
+    priv = cpkg_cobj_get_instance_private (client);
+#endif
+
+}
+
+CpkgCobj* cpkg_cobj_new (void)
+{
+    return g_object_new (CPKG_TYPE_COBJ, NULL);
 }
 """
 
