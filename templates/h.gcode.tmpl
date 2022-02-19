@@ -1,0 +1,20 @@
+G_BEGIN_DECLS
+
+#define {{CPKG}}_TYPE_{{COBJ}}              ({{cpkg}}_{{cobj}}_get_type ())
+#if 1
+G_DECLARE_FINAL_TYPE ({{Cpkg}}{{Cobj}}, {{cpkg}}_{{cobj}}, {{CPKG}}, {{COBJ}}, {{Ppkg}}{{Pobj}})
+#else
+G_DECLARE_DERIVABLE_TYPE ({{Cpkg}}{{Cobj}}, {{cpkg}}_{{cobj}}, {{CPKG}}, {{COBJ}}, {{Ppkg}}{{Pobj}})
+
+struct _{{Cpkg}}{{Cobj}}Class
+{
+    {{Ppkg}}{{Pobj}}Class     parent_class;
+    {{CURSOR}}
+};
+
+GType   {{cpkg}}_{{cobj}}_get_type           (void) G_GNUC_CONST;
+#endif
+
+{{Cpkg}}{{Cobj}}*     {{cpkg}}_{{cobj}}_new                (void);
+
+G_END_DECLS

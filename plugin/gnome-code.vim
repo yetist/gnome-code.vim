@@ -1,7 +1,7 @@
 " File: gnome-code.vim
 " Summary: This file is a vim plugin to autogen gobject code.
 " Author: yetist <yetist@gmail.com>
-" URL: http://gsnippet.googlecode.com/svn/trunk/vim-plugins/gnome-code.vim
+" URL: https://github.com/yetist/gnome-code.vim
 " License:
 "
 " This program is free software; you can redistribute it and/or modify
@@ -18,148 +18,166 @@
 " along with this program; if not, write to the Free Software
 " Foundation, Inc., 59 Temple Place, Suite 330,
 " Boston, MA 02111-1307, USA.
-" Version: 2007-09-12 00:59:45
-" Usage: do :GnomeCode(args), args is the parent gobject.
+" Version: 2022-02-19 14:44:45
+" Usage: do :GnomeCode
 "
 
-command! -nargs=1 GnomeCode exec('py gnomecode(<f-args>)')
+" Script initialization {{{
+if exists("g:gnome_code_loaded")
+  finish
+endif
+let g:gnome_code_loaded = 1
+" }}}
 
-python <<EOF
-# -*- coding: utf-8 -*-
-import vim, os
-CODE={}
-CODE[".h"] = """
-G_BEGIN_DECLS
+function! s:get_package_name() " {{{
+  let package = expand("%:t:r")
+  let l:len = len(split(package, "-"))
 
-#define CPKG_TYPE_COBJ              (cpkg_cobj_get_type ())
-#if 1
-G_DECLARE_FINAL_TYPE (CpkgCobj, cpkg_cobj, CPKG, COBJ, PpkgPobj)
-#else
-G_DECLARE_DERIVABLE_TYPE (CpkgCobj, cpkg_cobj, CPKG, COBJ, PpkgPobj)
+  if l:len < 2
+    echohl ErrorMsg
+    echo "The file name does not include '-' char"
+    echohl None
+    let package = input("Enter object name (e.g. package-object):", package)
+  endif
 
-struct _CpkgCobjClass
-{
-  PpkgPobjClass     parent_class;
-};
+  let l:len = len(split(package, "-"))
+  while l:len < 2
+    echohl ErrorMsg
+    echo "\nPackage object name must include '-' char."
+    echohl None
+    let package = input("Enter package object name (e.g. package-object):", package)
+    let l:len = len(split(package, "-"))
+  endwhile
+  return package
+endfunction " }}}
 
-GType      cpkg_cobj_get_type           (void) G_GNUC_CONST;
-#endif
+function! s:get_parent_name() " {{{
+  let parent = input("Enter parent object name (e.g. gtk-widget):", "g-object")
+  let len = len(split(parent, "-"))
+  while len < 2
+    echohl ErrorMsg
+    echo "\nThe parent object name must include '-' char."
+    echohl None
+    let parent = input("Enter parent object name (e.g. gtk-widget):", parent)
+    let len = len(split(parent, "-"))
+  endwhile
+  return parent
+endfunction " }}}
 
-CpkgCobj*     cpkg_cobj_new                (void);
+function! s:get_object_dict() " {{{
+  let object = s:get_package_name()
+  let parent = s:get_parent_name()
+  let info = {}
 
-G_END_DECLS
-"""
+  " package name
+  let olist = []
+  let object_list = split(object, "-")
+  for i in object_list[1:]
+    let olist = add(olist, toupper(i[0]) . i[1:])
+  endfor
 
-CODE[".c"] = """
-enum {
-    LAST_SIGNAL
-};
+  let info["cpkg"] = tolower(object_list[0])
+  let info["Cpkg"] = toupper(info["cpkg"][0]) . info["cpkg"][1:]
+  let info["CPKG"] = toupper(info["cpkg"])
+  let info["cobj"] = tolower(join(object_list[1:], "_"))
+  let info["Cobj"] = join(olist, "")
+  let info["COBJ"] = toupper(info["cobj"])
 
-enum {
-    PROP_0,
-    NUM_PROPERTIES
-};
+  " parent name
+  let plist = []
+  let parent_list = split(parent, "-")
+  for i in parent_list[1:]
+    let plist = add(plist, toupper(i[0]) . i[1:])
+  endfor
+  let info["ppkg"] = tolower(parent_list[0])
+  let info["Ppkg"] = toupper(info["ppkg"][0]) . info["ppkg"][1:]
+  let info["PPKG"] = toupper(info["ppkg"])
+  let info["pobj"] = tolower(join(parent_list[1:], "_"))
+  let info["Pobj"] = join(plist, "")
+  let info["POBJ"] = toupper(info["pobj"])
 
-static GParamSpec *widget_props[NUM_PROPERTIES] = { NULL, };
-static guint signals[LAST_SIGNAL] = { 0 };
-#if 1
-struct _CpkgCobj
-{
-  PpkgPobj      pobj;
-};
+  return info
+endfunction " }}}
 
-G_DEFINE_TYPE (CpkgCobj, cpkg_cobj, PPKG_TYPE_POBJ);
-#else
-typedef struct {
-  PpkgPobj      pobj;
-} CpkgCobjPrivate;
+function! s:escape_tmpl(tmpl) " {{{
+  return escape(a:tmpl, '/')
+endfunction " }}}
 
-G_DEFINE_TYPE_WITH_PRIVATE (CpkgCobj, cpkg_cobj, PPKG_TYPE_POBJ);
-#endif //#if 0/1
+function! s:expand_tmpl(tmpl, value) " {{{
+  silent! execute '%s/{{'. s:escape_tmpl(a:tmpl) .'}}/'. s:escape_tmpl(a:value) .'/gI'
+endfunction " }}}
 
-static void cpkg_cobj_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec)
-{
-    CpkgCobj *cobj;
+function! s:move_cursor() " {{{
+  " go to first line
+  normal gg
+  " serach for cursor if it is found then move cursor there
+  if (search('{{CURSOR}}', 'W'))
+    let l:lineno = line('.')
+    let l:colno = col('.')
+    " remove cursor
+    s/{{CURSOR}}//
+    call cursor(l:lineno, l:colno)
+    return 1
+  endif
+  return 0
+endfunction " }}}
 
-    cobj = CPKG_COBJ (object);
+" Expand all templates present in current file
+function! s:expand_all_tmpl() " {{{
+  " mark the current position so that we can return to it if cursor is not found
+  normal! mm
 
-    switch (prop_id)
-    {
+  let dict = s:get_object_dict()
+  for [key, value] in items(dict)
+    call s:expand_tmpl(key, value)
+  endfor
 
-        default:
-            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-            break;
-    }
-}
+  let l:cursor_found = s:move_cursor()
 
-static void cpkg_cobj_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
-{
-    CpkgCobj *cobj;
+  if !l:cursor_found
+    " return to old cursor position
+    normal `m
+  endif
+endfunction " }}}
 
-    cobj = CPKG_COBJ (object);
+function! s:init_tmpl_for_ext(filepart, template_path) " {{{
+  let l:template_path = fnameescape(a:template_path.'/'.a:filepart.'.gcode.tmpl')
+  if (filereadable(l:template_path))
+    execute 'silent r '.l:template_path
+    return 1
+  endif
+  return 0
+endfunction " }}}
 
-    switch (prop_id)
-    {
+" get default template directory
+let s:default_template_directory = expand('<sfile>:p:h:h') . '/templates'
 
-        default:
-            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-            break;
-    }
-}
+function! GnomeCodeGen() " {{{
+  " Paths to search for templates files
+  let l:tmpl_paths = finddir("templates", ";",-1)
 
-static void cpkg_cobj_class_init (CpkgCobjClass *klass)
-{
-    GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
-    GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
+  " user defined search paths
+  if (!exists('g:tmpl_search_paths'))
+    let g:tmpl_search_paths = []
+  endif
+  for l:path in g:tmpl_search_paths
+    let l:tmpl_paths = add(l:tmpl_paths, expand(l:path))
+  endfor
 
-    gobject_class->set_property = cpkg_cobj_set_property;
-    gobject_class->get_property = cpkg_cobj_get_property;
-}
+  " default template path
+  let l:tmpl_paths = add(l:tmpl_paths, s:default_template_directory)
 
-static void cpkg_cobj_init (CpkgCobj *cobj)
-{
-#if 0
-    CpkgCobjPrivate *priv;
+  let l:file_ext = expand('%:e') " file extension
 
-    priv = cpkg_cobj_get_instance_private (client);
-#endif
+  for l:path in l:tmpl_paths
+    let l:initialized = s:init_tmpl_for_ext(l:file_ext, l:path)
+    if (l:initialized)
+      call s:expand_all_tmpl()
+      break
+    endif
+  endfor
+endfunction " }}}
 
-}
-
-CpkgCobj* cpkg_cobj_new (void)
-{
-    return g_object_new (CPKG_TYPE_COBJ, NULL);
-}
-"""
-
-def gnomecode(parent):
-    global CODE
-    info={}
-    info["filename"] = vim.eval("expand(\"%:t\")")
-    (info["basename"], info["extname"]) = os.path.splitext(info["filename"])
-
-    info["cpkg"] = info["basename"].split("-")[0].lower()
-    info["Cpkg"] = info["cpkg"][0].upper() + info["cpkg"][1:]
-    info["CPKG"] = info["cpkg"].upper()
-
-    info["cobj"] = "_".join(info["basename"].split("-")[1:]).lower()
-    info["Cobj"] = "".join([i[0].upper()+i[1:].lower() for i in info["basename"].split("-")[1:]])
-    info["COBJ"] = info["cobj"].upper()
-
-    info["ppkg"] = parent.split("-")[0].lower()
-    info["Ppkg"] = info["ppkg"][0].upper() + info["ppkg"][1:]
-    info["PPKG"] = info["ppkg"].upper()
-
-    info["pobj"] = parent.split("-")[1].lower()
-    info["Pobj"] = info["pobj"][0].upper() + info["pobj"][1:]
-    info["POBJ"] = info["pobj"].upper()
-
-    if CODE.has_key(info["extname"]):
-        for k in info.keys():
-            CODE[info["extname"]] = CODE[info["extname"]].replace(k, info[k])
-        write_code(CODE[info["extname"]])
-
-def write_code(lines):
-    row,col = vim.current.window.cursor
-    vim.current.buffer[row:row] = lines.splitlines()
-EOF
+" Commands {{{
+command! GnomeCode call GnomeCodeGen()
+" }}}
