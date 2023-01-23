@@ -176,6 +176,7 @@ function! GnomeCodeGen() " {{{
       break
     endif
   endfor
+  silent set filetype=c
 endfunction " }}}
 
 " Commands {{{
