@@ -18,9 +18,9 @@ struct _{{Cpkg}}{{Cobj}}
 
 G_DEFINE_TYPE ({{Cpkg}}{{Cobj}}, {{cpkg}}_{{cobj}}, {{PPKG}}_TYPE_{{POBJ}});
 #else
-typedef struct {
+struct _{{Cpkg}}{{Cobj}}Private {
   {{Ppkg}}{{Pobj}}      {{pobj}};
-} {{Cpkg}}{{Cobj}}Private;
+};
 
 G_DEFINE_TYPE_WITH_PRIVATE ({{Cpkg}}{{Cobj}}, {{cpkg}}_{{cobj}}, {{PPKG}}_TYPE_{{POBJ}});
 #endif //#if 0/1
